@@ -28,6 +28,6 @@ Jika list proxy ini membantu pekerjaan Anda, pertimbangkan untuk mendukung biaya
 
 | Scan QR untuk Donasi | Link Alternatif |
 | :---: | :---: |
-| ![QR](https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://saweria.co/username) | [Klik di Sini (Saweria)](https://saweria.co/username) |
+| ![QR](https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://saweria.co/anutmagang) | [Klik di Sini (Saweria)](https://saweria.co/anutmagang) |
 ---
 *Powered by GitHub Actions & Python*
