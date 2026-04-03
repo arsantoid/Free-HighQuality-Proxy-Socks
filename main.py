@@ -5,7 +5,7 @@ import re
 import os
 
 # --- KONFIGURASI ---
-THREADS = 150 # Dinaikkan sedikit untuk efisiensi jumlah masif
+THREADS = 150
 TIMEOUT = 5 
 TEST_URL_DETAIL = "http://httpbin.org/get?show_env=1"
 TEST_URL_QUALITY = "https://www.google.com"
@@ -48,14 +48,21 @@ results = {"all": [], "http": [], "socks4": [], "socks5": []}
 countries = {}
 q = queue.Queue()
 
+# Tambahan variabel untuk memantau progress
+checked_count = 0
+total_to_check = 0
+print_lock = threading.Lock()
+
 def get_anon(res_json, my_ip):
     origin = res_json.get('origin', '')
     if my_ip and my_ip in origin: return "Transparent"
     return "Elite" if not res_json.get('headers', {}).get('Via') else "Anonymous"
 
 def worker(my_ip):
+    global checked_count
     while not q.empty():
         proxy = q.get()
+        success_found = False
         for proto in ['http', 'socks4', 'socks5']:
             try:
                 px = {"http": f"{proto}://{proxy}", "https": f"{proto}://{proxy}"}
@@ -78,33 +85,42 @@ def worker(my_ip):
                         
                         if cc not in countries: countries[cc] = []
                         countries[cc].append(full_proxy)
-                        print(f"[SUCCESS] {proto.upper()} - {proxy} ({cc})")
+                        
+                        with print_lock:
+                            print(f"[SUCCESS] {proto.upper()} - {proxy} ({cc})")
+                        success_found = True
                         break
             except: continue
+        
+        # Update counter setiap kali satu proxy selesai (apapun hasilnya)
+        with print_lock:
+            checked_count += 1
+            if checked_count % 100 == 0: # Cetak progress setiap 100 proxy
+                print(f"--- Progress: {checked_count}/{total_to_check} Checked ---")
+        
         q.task_done()
 
 def main():
+    global total_to_check
     if not os.path.exists('results/countries'): os.makedirs('results/countries', exist_ok=True)
     try: my_ip = requests.get("https://api.ipify.org").text
     except: my_ip = None
 
     print("--- Scraping Data dengan Deduplikasi Awal ---")
-    # Menggunakan set() untuk deduplikasi instan saat scraping
     unique_proxies_set = set()
     
     for s in SOURCES:
         try:
             res = requests.get(s, timeout=15)
-            # Mencari IP:PORT
             found = re.findall(r'\d+\.\d+\.\d+\.\d+:\d+', res.text)
-            # Tambahkan langsung ke set (otomatis menolak jika duplikat)
-            before_count = len(unique_proxies_set)
+            before = len(unique_proxies_set)
             unique_proxies_set.update(found)
-            new_count = len(unique_proxies_set) - before_count
-            print(f"Sumber: {s[:40]}... (+{new_count} unik)")
+            added = len(unique_proxies_set) - before
+            print(f"Sumber: {s[:35]}... (+{added} unik)")
         except: pass
 
-    print(f"\nTotal Akhir Unik: {len(unique_proxies_set)} proxy.")
+    total_to_check = len(unique_proxies_set)
+    print(f"\nTotal Akhir Unik: {total_to_check} proxy.")
     print(f"Memulai Validasi Ganda dengan {THREADS} Threads...\n")
 
     for p in unique_proxies_set: q.put(p)
