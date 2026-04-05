@@ -12,11 +12,29 @@ TIMEOUT = 3
 TEST_URL_DETAIL = "http://httpbin.org/get?show_env=1"
 TEST_URL_QUALITY = "https://www.google.com"
 
-# DAFTAR SUMBER UTUH (31 SUMBER TANPA DIPOTONG)
-SOURCES = [
+# --- MODUL TAMBAH SUMBER PAGINASI (MODULAR & SIMPLE) ---
+# Format: "URL_DENGAN_PAGE_INDEX": TOTAL_HALAMAN
+PAGINASI_CONFIG = {
+    "https://www.freeproxy.world/?page={}": 100,
+    "https://free.geonix.com/en/?page={}": 100,
+    # Jika nemu web baru tinggal tambah di bawah sini:
+    # "https://website-baru.com/list?p={}": 50,
+}
+
+# --- GENERATOR OTOMATIS (JANGAN DIUBAH) ---
+PAGINATED_SOURCES = []
+for base_url, max_page in PAGINASI_CONFIG.items():
+    # Loop otomatis generate URL dari page 1 sampai max_page
+    PAGINATED_SOURCES.extend([base_url.format(i) for i in range(1, max_page + 1)])
+
+# DAFTAR SUMBER UTUH (PAGINASI + STATIC SOURCES)
+SOURCES = PAGINATED_SOURCES + [
     "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http",
     "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4",
     "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5",
+    "https://api.proxyscrape.com/v4/free-proxy-list/get?protocol=all&timeout=10000&country=all&ssl=all&anonymity=all&limit=200000&request=displayproxies",
+    "https://proxylist.geonode.com/api/proxy-list?filterLastChecked=10&limit=500&page=2&sort_by=lastChecked&sort_type=desc",
+    "https://api.lumiproxy.com/web_v1/free-proxy/list?page_size=60&page=1&language=en-us",
     "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
     "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
     "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
@@ -51,12 +69,11 @@ results = {"all": [], "http": [], "socks4": [], "socks5": []}
 countries = {}
 q = queue.Queue()
 
-# Variabel Monitoring Progress
+# Monitoring Progress
 checked_count = 0
 total_to_check = 0
 print_lock = threading.Lock()
 
-# LIST USER-AGENTS MAKSIMAL (Anti-Fingerprinting)
 UA_LIST = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -72,7 +89,6 @@ def get_anon(res_json, my_ip):
 
 def worker(my_ip):
     global checked_count
-    # Gunakan satu session per thread untuk efisiensi koneksi (Keep-Alive)
     session = requests.Session()
     while not q.empty():
         proxy = q.get()
@@ -81,17 +97,16 @@ def worker(my_ip):
                 px = {"http": f"{proto}://{proxy}", "https": f"{proto}://{proxy}"}
                 headers = {"User-Agent": random.choice(UA_LIST)}
                 
-                # Tahap 1: Validasi Anonimitas & Header
+                # Validasi 1: Anonimitas
                 r = session.get(TEST_URL_DETAIL, proxies=px, timeout=TIMEOUT, headers=headers)
                 if r.status_code == 200:
                     data_json = r.json()
                     
-                    # Tahap 2: Validasi Kualitas Nyata (Tembus Google)
+                    # Validasi 2: Google Check
                     g = session.get(TEST_URL_QUALITY, proxies=px, timeout=5, headers=headers)
                     if g.status_code == 200:
                         ip_only = proxy.split(':')[0]
                         try:
-                            # Cek Lokasi Negara dengan headers lengkap
                             c_data = session.get(f"http://ip-api.com/json/{ip_only}?fields=countryCode", timeout=5, headers=headers).json()
                             cc = c_data.get('countryCode', 'UN')
                         except: cc = "UN"
@@ -99,7 +114,6 @@ def worker(my_ip):
                         anon = get_anon(data_json, my_ip)
                         full_proxy = f"{proto}://{proxy}"
                         
-                        # Simpan ke memori hasil
                         results["all"].append(f"{proxy} | {proto.upper()} | {cc} | {anon}")
                         results[proto].append(proxy)
                         
@@ -119,7 +133,6 @@ def worker(my_ip):
 
 def main():
     global total_to_check
-    # Siapkan folder output
     if not os.path.exists('results/countries'): os.makedirs('results/countries', exist_ok=True)
     
     scraper = requests.Session()
@@ -132,7 +145,6 @@ def main():
     unique_proxies_set = set()
     
     for s in SOURCES:
-        # Percobaan ulang (retry) 3 kali per sumber jika gagal
         for attempt in range(3):
             try:
                 current_headers = {
@@ -149,37 +161,34 @@ def main():
                         before = len(unique_proxies_set)
                         unique_proxies_set.update(found)
                         added = len(unique_proxies_set) - before
-                        print(f"Sumber: {s[:35]}... (+{added} unik)")
-                        # Jeda adaptif agar sumber tidak memblokir IP kita
-                        time.sleep(random.uniform(1.5, 3.0))
+                        print(f"Sumber: {s[:45]}... (+{added} unik)")
+                        
+                        # Jeda adaptif (Lebih cepat buat paginasi biar gak kelamaan)
+                        time.sleep(random.uniform(0.7, 1.5))
                         break
                 elif res.status_code == 429:
-                    # Backoff otomatis jika terkena rate limit
-                    wait_time = (attempt + 1) * 5
-                    print(f"! Rate Limit 429 di {s[:35]}... Tidur {wait_time}s")
-                    time.sleep(wait_time)
+                    time.sleep(10)
                 else:
-                    time.sleep(2)
+                    time.sleep(1)
             except:
-                time.sleep(2)
+                time.sleep(1)
 
     total_to_check = len(unique_proxies_set)
     print(f"\nTotal Akhir Unik: {total_to_check} proxy.")
     print(f"Memulai Validasi Ganda dengan {THREADS} Threads...\n")
 
     for p in unique_proxies_set: q.put(p)
-    # Jalankan worker threads
     for _ in range(THREADS):
         threading.Thread(target=worker, args=(my_ip,), daemon=True).start()
     q.join()
 
-    # Ekspor Final ke file .txt
+    # Ekspor Final
     for k, v in results.items():
         with open(f"results/{k}.txt", "w") as f: f.write("\n".join(v))
     for cc, v in countries.items():
         with open(f"results/countries/{cc}.txt", "w") as f: f.write("\n".join(v))
     
-    print("--- SCRAPER SELESAI. SIAP UNTUK HUNTING ---")
+    print("--- SCRAPER SELESAI ---")
 
 if __name__ == "__main__":
     main()
