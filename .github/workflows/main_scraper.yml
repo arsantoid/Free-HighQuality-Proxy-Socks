@@ -2,11 +2,11 @@ name: Proxy Auto System (Main Scraper)
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # Jalan otomatis setiap 2 jam
-  workflow_dispatch:      # Tombol manual di tab Actions
+    - cron: '0 */2 * * *' # Berjalan otomatis setiap 2 jam
+  workflow_dispatch:      # Tombol manual di tab Actions agar bisa ditest kapan saja
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Menghilangkan warning Node.js 20
 
 jobs:
   scrape:
@@ -35,7 +35,10 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          # Menambahkan folder results secara keseluruhan
           git add results/
+          # Commit jika ada perubahan data proxy baru
           git commit -m "Scraper Update: $(date '+%Y-%m-%d %H:%M')" || exit 0
+          # Rebase sangat penting agar sejarah commit tetap lurus saat digabung dengan hasil scanner
           git pull origin main --rebase
           git push origin main
