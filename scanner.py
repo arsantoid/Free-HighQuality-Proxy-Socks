@@ -7,7 +7,7 @@ import re
 import random
 import time
 
-# --- KONFIGURASI HUNTER (ULTIMATE NO LIMIT) ---
+# --- KONFIGURASI HUNTER ---
 THREADS_SCAN = 150       
 TIMEOUT_SCAN = 3         
 TEST_URL_DETAIL = "http://httpbin.org/get?show_env=1"
@@ -21,7 +21,7 @@ q_scan = queue.Queue()
 print_lock = threading.Lock()
 deep_scanned_subnets = set() # Biar gak looping selamanya di subnet yang sama
 
-# Variabel Baru untuk Tracking (Biar gak stuck)
+# Tracking 
 checked_hunted = 0
 
 UA_LIST = [
@@ -76,7 +76,7 @@ def hunter_worker(my_ip):
                             print(f"[HUNTED SUCCESS] {result_entry}")
                         hunted_results.append(result_entry)
 
-                        # --- LOGIKA INSTINCT DEEP SCAN (RE-ENGAGE) ---
+                        # --- LOGIKA INSTINCT DEEP SCAN ---
                         subnet = ".".join(ip_only.split('.')[:3])
                         if anon != "Transparent" and subnet not in deep_scanned_subnets:
                             with print_lock:
@@ -92,7 +92,7 @@ def hunter_worker(my_ip):
             except:
                 continue
         
-        # --- PROGRESS INDICATOR (BIAR GAK BERASA STUCK) ---
+        # --- PROGRESS INDICATOR ---
         with print_lock:
             checked_hunted += 1
             if checked_hunted % 500 == 0:
