@@ -1,0 +1,42 @@
+name: Hunted Proxy System (Elite Scanner)
+
+on:
+  workflow_run:
+    workflows: ["Proxy Auto System (Main Scraper)"] # Nama harus sama dengan workflow di atas
+    types:
+      - completed
+  workflow_dispatch: # Bisa dijalankan manual jika ingin berburu kapan saja
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    # Hanya jalan jika workflow Scraper Utama BERHASIL (success)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Run Hunter Engine (Scanning)
+        run: python scanner.py
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Commit & Push Hunted Results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add results/hunted/
+          git commit -m "Hunted Elite Update: $(date '+%Y-%m-%d %H:%M')" || exit 0
+          git pull origin main --rebase
+          git push origin main
