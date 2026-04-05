@@ -15,8 +15,8 @@ TEST_URL_QUALITY = "https://www.google.com"
 # --- MODUL TAMBAH SUMBER PAGINASI (MODULAR & SIMPLE) ---
 # Format: "URL_DENGAN_PAGE_INDEX": TOTAL_HALAMAN
 PAGINASI_CONFIG = {
-    "https://www.freeproxy.world/?page={}": 100,
-    "https://free.geonix.com/en/?page={}": 100,
+    "https://www.freeproxy.world/?page={}": 120,
+    "https://free.geonix.com/en/?page={}": 120,
     # NOTES For Upcoming Updates 
     # "https://website-baru.com/list?p={}": 50,
 }
