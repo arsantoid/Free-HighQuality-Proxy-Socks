@@ -8,7 +8,7 @@ import random
 import time
 
 # --- KONFIGURASI HUNTER ---
-THREADS_SCAN = 150       
+THREADS_SCAN = 200       
 TIMEOUT_SCAN = 3         
 TEST_URL_DETAIL = "http://httpbin.org/get?show_env=1"
 TEST_URL_QUALITY = "https://www.google.com"
